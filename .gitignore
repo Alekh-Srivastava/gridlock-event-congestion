@@ -12,23 +12,19 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# OSMnx cache (large, regenerates automatically)
-src/_osmnx_cache.graphml
-src/_seg_info_cache.joblib
+# Misc cache
 src/cache/
 cache/
 
 # Streamlit
 .streamlit/
 
-# Models & outputs (regenerate from pipeline)
-models/*.joblib
-models/*.pkl
-data/processed/*.parquet
-outputs/*.json
+# Secrets
+.env
 
-# Keep the raw ASTraM data
-!data/raw/astram_events.csv
+# Project docs (not for public repo)
+CLAUDE.md
+INSTRUCTIONS.md
 
 # OS
 .DS_Store
