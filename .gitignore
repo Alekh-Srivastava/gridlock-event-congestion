@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OSMnx cache (large, regenerates automatically)
+src/_osmnx_cache.graphml
+src/_seg_info_cache.joblib
+src/cache/
+cache/
+
+# Streamlit
+.streamlit/
+
+# Models & outputs (regenerate from pipeline)
+models/*.joblib
+models/*.pkl
+data/processed/*.parquet
+outputs/*.json
+
+# Keep the raw ASTraM data
+!data/raw/astram_events.csv
+
+# OS
+.DS_Store
+Thumbs.db
