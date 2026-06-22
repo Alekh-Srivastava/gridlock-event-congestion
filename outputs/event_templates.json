@@ -1,0 +1,340 @@
+{
+  "2023-12-10": {
+    "event_date": "2023-12-10",
+    "event_type": "public_event",
+    "crowd": 30000,
+    "crowd_source": "type_prior",
+    "start_h": 4.0,
+    "end_h": 4.0,
+    "prediction_error": {},
+    "actual_impact": {
+      "avg_delta_kmh": -1.08,
+      "worst_delta_kmh": -12.79,
+      "severe_segs": 2,
+      "moderate_segs": 37,
+      "peak_hour": 3.75
+    }
+  },
+  "2023-12-14": {
+    "event_date": "2023-12-14",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 10.0,
+    "end_h": 10.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.14,
+      "worst_delta_pred": -2.28
+    }
+  },
+  "2023-12-15": {
+    "event_date": "2023-12-15",
+    "event_type": "protest",
+    "crowd": 2000,
+    "crowd_source": "type_prior",
+    "start_h": 6.0,
+    "end_h": 23.0,
+    "prediction_error": {
+      "n_matched": 500,
+      "mae": 1.449,
+      "rmse": 1.826,
+      "bias": 0.241,
+      "worst_pred": -3.44,
+      "worst_actual": -5.38,
+      "r2": -0.33
+    },
+    "actual_impact": {
+      "avg_delta_kmh": -1.04,
+      "worst_delta_kmh": -8.16,
+      "severe_segs": 0,
+      "moderate_segs": 14,
+      "peak_hour": 18.75
+    },
+    "predicted_impact": {
+      "avg_delta_pred": -0.59,
+      "worst_delta_pred": -10.39
+    }
+  },
+  "2023-12-27": {
+    "event_date": "2023-12-27",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 4.0,
+    "end_h": 7.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.29,
+      "worst_delta_pred": -7.8
+    }
+  },
+  "2023-12-28": {
+    "event_date": "2023-12-28",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 12.0,
+    "end_h": 23.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -0.97,
+      "worst_delta_pred": -3.18
+    }
+  },
+  "2024-01-02": {
+    "event_date": "2024-01-02",
+    "event_type": "protest",
+    "crowd": 2000,
+    "crowd_source": "type_prior",
+    "start_h": 10.0,
+    "end_h": 13.0,
+    "prediction_error": {
+      "n_matched": 129,
+      "mae": 1.382,
+      "rmse": 1.699,
+      "bias": -0.121,
+      "worst_pred": -2.54,
+      "worst_actual": -5.35,
+      "r2": -0.106
+    },
+    "actual_impact": {
+      "avg_delta_kmh": -0.94,
+      "worst_delta_kmh": -6.49,
+      "severe_segs": 0,
+      "moderate_segs": 8,
+      "peak_hour": 5.75
+    },
+    "predicted_impact": {
+      "avg_delta_pred": -1.56,
+      "worst_delta_pred": -3.08
+    }
+  },
+  "2024-01-03": {
+    "event_date": "2024-01-03",
+    "event_type": "protest",
+    "crowd": 2000,
+    "crowd_source": "type_prior",
+    "start_h": 13.0,
+    "end_h": 13.0,
+    "prediction_error": {
+      "n_matched": 86,
+      "mae": 1.161,
+      "rmse": 1.483,
+      "bias": -0.093,
+      "worst_pred": -2.3,
+      "worst_actual": -5.85,
+      "r2": -0.031
+    },
+    "actual_impact": {
+      "avg_delta_kmh": -0.99,
+      "worst_delta_kmh": -8.38,
+      "severe_segs": 0,
+      "moderate_segs": 12,
+      "peak_hour": 8.25
+    },
+    "predicted_impact": {
+      "avg_delta_pred": -1.23,
+      "worst_delta_pred": -2.81
+    }
+  },
+  "2024-01-09": {
+    "event_date": "2024-01-09",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 4.0,
+    "end_h": 7.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.66,
+      "worst_delta_pred": -7.57
+    }
+  },
+  "2024-01-14": {
+    "event_date": "2024-01-14",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 1.0,
+    "end_h": 4.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.46,
+      "worst_delta_pred": -5.67
+    }
+  },
+  "2024-01-18": {
+    "event_date": "2024-01-18",
+    "event_type": "congestion",
+    "crowd": 5000,
+    "crowd_source": "type_prior",
+    "start_h": 3.0,
+    "end_h": 6.0,
+    "prediction_error": {
+      "n_matched": 58,
+      "mae": 2.288,
+      "rmse": 2.904,
+      "bias": -1.757,
+      "worst_pred": -7.71,
+      "worst_actual": -4.93,
+      "r2": -5.473
+    },
+    "actual_impact": {
+      "avg_delta_kmh": -1.04,
+      "worst_delta_kmh": -6.55,
+      "severe_segs": 0,
+      "moderate_segs": 17,
+      "peak_hour": 6.0
+    },
+    "predicted_impact": {
+      "avg_delta_pred": -1.74,
+      "worst_delta_pred": -7.76
+    }
+  },
+  "2024-01-29": {
+    "event_date": "2024-01-29",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 7.0,
+    "end_h": 7.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.37,
+      "worst_delta_pred": -2.63
+    }
+  },
+  "2024-02-01": {
+    "event_date": "2024-02-01",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 3.0,
+    "end_h": 6.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.6,
+      "worst_delta_pred": -6.23
+    }
+  },
+  "2024-02-17": {
+    "event_date": "2024-02-17",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 4.0,
+    "end_h": 23.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.39,
+      "worst_delta_pred": -5.87
+    }
+  },
+  "2024-02-18": {
+    "event_date": "2024-02-18",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 12.0,
+    "end_h": 15.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.32,
+      "worst_delta_pred": -3.54
+    }
+  },
+  "2024-02-24": {
+    "event_date": "2024-02-24",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 22.0,
+    "end_h": 23.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.02,
+      "worst_delta_pred": -2.06
+    }
+  },
+  "2024-03-07": {
+    "event_date": "2024-03-07",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 3.0,
+    "end_h": 3.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.44,
+      "worst_delta_pred": -5.87
+    }
+  },
+  "2024-03-09": {
+    "event_date": "2024-03-09",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 3.0,
+    "end_h": 6.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.74,
+      "worst_delta_pred": -6.23
+    }
+  },
+  "2024-03-29": {
+    "event_date": "2024-03-29",
+    "event_type": "congestion",
+    "crowd": 5000,
+    "crowd_source": "type_prior",
+    "start_h": 12.0,
+    "end_h": 15.0,
+    "prediction_error": {
+      "n_matched": 242,
+      "mae": 1.333,
+      "rmse": 1.657,
+      "bias": 0.131,
+      "worst_pred": -2.65,
+      "worst_actual": -6.06,
+      "r2": -0.063
+    },
+    "actual_impact": {
+      "avg_delta_kmh": -1.03,
+      "worst_delta_kmh": -6.92,
+      "severe_segs": 0,
+      "moderate_segs": 15,
+      "peak_hour": 4.5
+    },
+    "predicted_impact": {
+      "avg_delta_pred": -1.35,
+      "worst_delta_pred": -3.56
+    }
+  },
+  "2024-04-01": {
+    "event_date": "2024-04-01",
+    "event_type": "construction",
+    "crowd": 0,
+    "crowd_source": "type_prior",
+    "start_h": 4.0,
+    "end_h": 7.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.54,
+      "worst_delta_pred": -6.39
+    }
+  },
+  "2024-04-03": {
+    "event_date": "2024-04-03",
+    "event_type": "public_event",
+    "crowd": 30000,
+    "crowd_source": "type_prior",
+    "start_h": 4.0,
+    "end_h": 4.0,
+    "prediction_error": {},
+    "predicted_impact": {
+      "avg_delta_pred": -1.45,
+      "worst_delta_pred": -7.32
+    }
+  }
+}

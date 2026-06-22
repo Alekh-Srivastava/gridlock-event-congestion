@@ -1,0 +1,110 @@
+[
+  {
+    "event_date": "2023-12-10",
+    "avg_delta_kmh": -1.1,
+    "worst_delta_kmh": -12.8,
+    "congestion_increase_pct": 2.9,
+    "segments_affected": 100,
+    "severe_segments": 1,
+    "moderate_segments": 15,
+    "impact_window": [
+      "00:00",
+      "23:45"
+    ],
+    "top_targets": [
+      "Castle Street",
+      "unnamed",
+      "Brigade Road"
+    ]
+  },
+  {
+    "event_date": "2024-01-18",
+    "avg_delta_kmh": -1.0,
+    "worst_delta_kmh": -6.6,
+    "congestion_increase_pct": 2.9,
+    "segments_affected": 100,
+    "severe_segments": 0,
+    "moderate_segments": 16,
+    "impact_window": [
+      "00:00",
+      "23:45"
+    ],
+    "top_targets": [
+      "Hudson Circle",
+      "Castle Street",
+      "Mission Road"
+    ]
+  },
+  {
+    "event_date": "2024-03-29",
+    "avg_delta_kmh": -1.0,
+    "worst_delta_kmh": -6.9,
+    "congestion_increase_pct": 2.9,
+    "segments_affected": 100,
+    "severe_segments": 0,
+    "moderate_segments": 14,
+    "impact_window": [
+      "00:00",
+      "23:45"
+    ],
+    "top_targets": [
+      "Brigade Road",
+      "Kasturba Road",
+      "Kempegowda Road"
+    ]
+  },
+  {
+    "event_date": "2023-12-15",
+    "avg_delta_kmh": -1.0,
+    "worst_delta_kmh": -8.2,
+    "congestion_increase_pct": 2.9,
+    "segments_affected": 100,
+    "severe_segments": 0,
+    "moderate_segments": 13,
+    "impact_window": [
+      "00:00",
+      "23:45"
+    ],
+    "top_targets": [
+      "Mission Road",
+      "Hudson Circle",
+      "Doctor B R Ambedkar Veedhi"
+    ]
+  },
+  {
+    "event_date": "2024-01-02",
+    "avg_delta_kmh": -0.9,
+    "worst_delta_kmh": -6.5,
+    "congestion_increase_pct": 2.6,
+    "segments_affected": 100,
+    "severe_segments": 0,
+    "moderate_segments": 7,
+    "impact_window": [
+      "00:00",
+      "23:45"
+    ],
+    "top_targets": [
+      "unnamed",
+      "Cubbonpet Main Road",
+      "Venkataswamy Naidu Road"
+    ]
+  },
+  {
+    "event_date": "2024-01-03",
+    "avg_delta_kmh": -1.0,
+    "worst_delta_kmh": -8.4,
+    "congestion_increase_pct": 3.3,
+    "segments_affected": 100,
+    "severe_segments": 0,
+    "moderate_segments": 11,
+    "impact_window": [
+      "00:00",
+      "23:45"
+    ],
+    "top_targets": [
+      "Mission Road",
+      "Brigade Road",
+      "Nrupatunga Road"
+    ]
+  }
+]
