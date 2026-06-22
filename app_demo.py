@@ -593,12 +593,13 @@ else:  # active
             if csv_source == "upload":
                 import io
                 raw_df = pd.read_csv(io.BytesIO(uploaded_file.read()))
-                # Save temporarily for load_clean_events
                 tmp_path = ROOT / "data" / "raw" / "_uploaded_events.csv"
                 raw_df.to_csv(tmp_path, index=False)
+                csv_path = tmp_path
                 status.write(f"✓  Uploaded: {len(raw_df):,} rows, {len(raw_df.columns)} columns")
             else:
-                raw_df = pd.read_csv(ROOT / "data" / "raw" / "astram_events.csv")
+                csv_path = ROOT / "data" / "raw" / "astram_events.csv"
+                raw_df = pd.read_csv(csv_path)
                 status.write(f"✓  Loaded bundled dataset: {len(raw_df):,} rows")
 
             time.sleep(0.3)
@@ -607,7 +608,7 @@ else:  # active
             status.write("⟳  Cleaning coordinates — dropping zero/null GPS rows…")
             time.sleep(0.2)
             status.write(f"⟳  Snapping events to nearest OSMnx junction (within {ss.zone_radius}m)…")
-            events = load_clean_events(zone_only=True, G=ss.G)
+            events = load_clean_events(csv_path=csv_path, zone_only=True, G=ss.G)
             status.write(f"✓  {len(events):,} events in zone · "
                          f"{events['is_gathering'].sum()} crowd-generating events")
             time.sleep(0.3)
