@@ -86,9 +86,11 @@ def _dark(chart, height=320):
     )
 
 # ── PyDeck helpers ────────────────────────────────────────────────────────────
-# CARTO GL vector style fails on Streamlit Cloud (sprites/glyphs blocked).
-# Raster PNG tiles have no sub-resource dependencies and load everywhere.
-_MAP_STYLE = {
+# Streamlit's bundled pydeck JS calls mapStyle.indexOf() — only strings work.
+# Encoding the raster style as a data: URL gives us a string that MapLibre
+# loads inline (no external fetch for the style JSON; only tile PNGs needed).
+import base64 as _b64
+_RASTER_STYLE = {
     "version": 8,
     "sources": {
         "carto-dark": {
@@ -103,6 +105,10 @@ _MAP_STYLE = {
     },
     "layers": [{"id": "carto-bg", "type": "raster", "source": "carto-dark"}],
 }
+_MAP_STYLE = (
+    "data:application/json;base64,"
+    + _b64.b64encode(json.dumps(_RASTER_STYLE).encode()).decode()
+)
 
 _VENUE_VIEW = pdk.ViewState(latitude=12.9788, longitude=77.5996, zoom=14, pitch=0)
 
