@@ -104,10 +104,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
-# Streamlit Cloud blocks external GL style JSON fetches (CSP), causing the
-# orange fallback canvas. map_style=None renders deck.gl on a plain dark
-# canvas with zero external dependencies — reliable on all environments.
-_MAP_STYLE = None
+_MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
 
 DEFAULT_LAT, DEFAULT_LNG = 12.9788, 77.5996
 

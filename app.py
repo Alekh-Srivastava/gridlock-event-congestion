@@ -86,11 +86,7 @@ def _dark(chart, height=320):
     )
 
 # ── PyDeck helpers ────────────────────────────────────────────────────────────
-# Streamlit Cloud blocks external GL style JSON fetches (CSP), causing the
-# orange fallback canvas. map_style=None renders deck.gl on a plain dark
-# canvas with zero external dependencies — reliable on all environments.
-_MAP_PROVIDER = None
-_MAP_STYLE    = None
+_MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
 
 _VENUE_VIEW = pdk.ViewState(latitude=12.9788, longitude=77.5996, zoom=14, pitch=0)
 
