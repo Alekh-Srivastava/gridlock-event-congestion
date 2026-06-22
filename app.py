@@ -86,7 +86,10 @@ def _dark(chart, height=320):
     )
 
 # ── PyDeck helpers ────────────────────────────────────────────────────────────
-CARTO_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+# pydeck >= 0.9 requires map_provider + short style name; URL strings don't
+# load reliably on Streamlit Cloud and cause the orange fallback canvas.
+_MAP_PROVIDER = "carto"
+_MAP_STYLE    = "dark_matter"
 
 _VENUE_VIEW = pdk.ViewState(latitude=12.9788, longitude=77.5996, zoom=14, pitch=0)
 
@@ -124,7 +127,8 @@ def _scatter_layer(data, id="pts", radius=12, color_field="color"):
 def _deck(layers, view=None, height=480):
     return st.pydeck_chart(
         pdk.Deck(layers=layers, initial_view_state=view or _VENUE_VIEW,
-                 map_style=CARTO_DARK, tooltip={"text": "{road}"}),
+                 map_provider=_MAP_PROVIDER, map_style=_MAP_STYLE,
+                 tooltip={"text": "{road}"}),
         use_container_width=True,
         height=height,
     )
