@@ -86,7 +86,23 @@ def _dark(chart, height=320):
     )
 
 # ── PyDeck helpers ────────────────────────────────────────────────────────────
-_MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+# CARTO GL vector style fails on Streamlit Cloud (sprites/glyphs blocked).
+# Raster PNG tiles have no sub-resource dependencies and load everywhere.
+_MAP_STYLE = {
+    "version": 8,
+    "sources": {
+        "carto-dark": {
+            "type": "raster",
+            "tiles": [
+                "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+                "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+            ],
+            "tileSize": 256,
+            "attribution": "© CARTO © OpenStreetMap contributors",
+        }
+    },
+    "layers": [{"id": "carto-bg", "type": "raster", "source": "carto-dark"}],
+}
 
 _VENUE_VIEW = pdk.ViewState(latitude=12.9788, longitude=77.5996, zoom=14, pitch=0)
 

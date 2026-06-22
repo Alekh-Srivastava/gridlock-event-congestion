@@ -104,7 +104,23 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
-_MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+# CARTO GL vector style fails on Streamlit Cloud (sprites/glyphs blocked).
+# Raster PNG tiles have no sub-resource dependencies and load everywhere.
+_MAP_STYLE = {
+    "version": 8,
+    "sources": {
+        "carto-dark": {
+            "type": "raster",
+            "tiles": [
+                "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+                "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+            ],
+            "tileSize": 256,
+            "attribution": "© CARTO © OpenStreetMap contributors",
+        }
+    },
+    "layers": [{"id": "carto-bg", "type": "raster", "source": "carto-dark"}],
+}
 
 DEFAULT_LAT, DEFAULT_LNG = 12.9788, 77.5996
 
