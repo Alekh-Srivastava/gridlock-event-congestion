@@ -104,10 +104,10 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
-# pydeck >= 0.9 requires map_provider + short style name; URL strings cause an
-# orange fallback canvas on Streamlit Cloud when the external style fails to load.
-_MAP_PROVIDER = "carto"
-_MAP_STYLE    = "dark_matter"
+# Streamlit Cloud blocks external GL style JSON fetches (CSP), causing the
+# orange fallback canvas. map_style=None renders deck.gl on a plain dark
+# canvas with zero external dependencies — reliable on all environments.
+_MAP_STYLE = None
 
 DEFAULT_LAT, DEFAULT_LNG = 12.9788, 77.5996
 
@@ -219,7 +219,7 @@ def _deck(layers, lat, lng, zoom=13.5, height=400):
         pdk.Deck(layers=layers,
                  initial_view_state=pdk.ViewState(latitude=lat, longitude=lng,
                                                    zoom=zoom, pitch=0),
-                 map_provider=_MAP_PROVIDER, map_style=_MAP_STYLE,
+                 map_style=_MAP_STYLE,
                  tooltip={"text": "{road}"}),
         use_container_width=True, height=height,
     )
@@ -535,7 +535,7 @@ elif cls2 == "done":
                 latitude=ss.zone_lat, longitude=ss.zone_lng,
                 zoom=13.5, pitch=0,
             ),
-            map_provider=_MAP_PROVIDER, map_style=_MAP_STYLE,
+            map_style=_MAP_STYLE,
             tooltip={"text": "{label}"},
         ),
         use_container_width=True,
