@@ -272,6 +272,148 @@ def _deck(lat, lng, path_layers=None, scatter_layers=None, zoom=13.5, height=400
         _add_scatter_layer(m, data, radius)
     st_folium(m, use_container_width=True, height=height, returned_objects=[])
 
+
+def _priority_scoring_detail():
+    """Detailed BFS-hop × centrality priority scoring explanation (Stage 1 expander)."""
+    # ── 1. The equation ──────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="margin-bottom:14px">'
+        '<div style="color:#445;font-size:.62rem;font-weight:700;letter-spacing:.1em;'
+        'margin-bottom:10px">HOW THE SCORE IS BUILT — THREE INPUTS, ONE NUMBER</div>'
+        '<div style="display:flex;gap:8px;align-items:stretch">'
+
+        '<div style="flex:1;background:#220800;border:1px solid #440a00;border-radius:9px;padding:12px">'
+        '<div style="color:#ff6b35;font-size:.65rem;font-weight:800;letter-spacing:.08em;margin-bottom:8px">INPUT 1 — PREDICTED &#948; (km/h)</div>'
+        '<div style="font-size:.74rem;color:#8899aa;line-height:1.55;margin-bottom:8px">'
+        'From <b style="color:#ff6b35">LightGBM #2 Delta Predictor</b>: how many km/h '
+        'slower will this road be during the event?<br><br>'
+        'Larger |&#948;| = road is hit harder = higher raw impact.</div>'
+        '<div style="background:#1a0800;border-radius:6px;padding:8px 10px;font-size:.72rem">'
+        '<b style="color:#ff6b35">|&#948;|</b> = |predicted_speed &minus; baseline_speed|<br>'
+        '<span style="color:#334;font-size:.67rem">bigger = worse congestion on this segment</span>'
+        '</div></div>'
+
+        '<div style="display:flex;align-items:center;font-size:1.6rem;color:#2a3a50;padding:0 4px">&#215;</div>'
+
+        '<div style="flex:1;background:#1a0e00;border:1px solid #3a2200;border-radius:9px;padding:12px">'
+        '<div style="color:#ff8833;font-size:.65rem;font-weight:800;letter-spacing:.08em;margin-bottom:8px">INPUT 2 — BFS HOP DECAY</div>'
+        '<div style="font-size:.74rem;color:#8899aa;line-height:1.55;margin-bottom:8px">'
+        'The system walks outward from the event junction through the road graph '
+        '(like ripples in water). Each road gets a hop number.<br><br>'
+        'The further away, the lower the weight:</div>'
+        '<div style="display:flex;flex-direction:column;gap:4px">'
+        '<div style="display:flex;align-items:center;gap:8px">'
+        '<span style="background:#ffdd44;color:#000;border-radius:3px;padding:1px 7px;font-size:.7rem;font-weight:800;min-width:32px;text-align:center">n=0</span>'
+        '<div style="flex:1;height:7px;background:#ffdd44;border-radius:4px"></div>'
+        '<span style="color:#ffdd44;font-size:.75rem;font-weight:700">&#215;1.00</span></div>'
+        '<div style="display:flex;align-items:center;gap:8px">'
+        '<span style="background:#ff8833;color:#000;border-radius:3px;padding:1px 7px;font-size:.7rem;font-weight:800;min-width:32px;text-align:center">n=1</span>'
+        '<div style="flex:1;height:7px;background:#ff8833;border-radius:4px;width:70%"></div>'
+        '<span style="color:#ff8833;font-size:.75rem;font-weight:700">&#215;0.70</span></div>'
+        '<div style="display:flex;align-items:center;gap:8px">'
+        '<span style="background:#ffaa44;color:#000;border-radius:3px;padding:1px 7px;font-size:.7rem;font-weight:800;min-width:32px;text-align:center">n=2</span>'
+        '<div style="flex:1;height:7px;background:#ffaa44;border-radius:4px;width:40%"></div>'
+        '<span style="color:#ffaa44;font-size:.75rem;font-weight:700">&#215;0.40</span></div>'
+        '<div style="display:flex;align-items:center;gap:8px">'
+        '<span style="background:#5566bb;color:white;border-radius:3px;padding:1px 7px;font-size:.7rem;font-weight:800;min-width:32px;text-align:center">n=3</span>'
+        '<div style="flex:1;height:7px;background:#5566bb;border-radius:4px;width:15%"></div>'
+        '<span style="color:#8899ff;font-size:.75rem;font-weight:700">&#215;0.15</span></div>'
+        '<div style="display:flex;align-items:center;gap:8px">'
+        '<span style="background:#222;color:#445;border-radius:3px;padding:1px 7px;font-size:.7rem;font-weight:800;min-width:32px;text-align:center">n=4+</span>'
+        '<div style="flex:1;height:7px;background:#333;border-radius:4px;width:5%"></div>'
+        '<span style="color:#445;font-size:.75rem;font-weight:700">&#215;0.05</span></div>'
+        '</div></div>'
+
+        '<div style="display:flex;align-items:center;font-size:1.6rem;color:#2a3a50;padding:0 4px">&#215;</div>'
+
+        '<div style="flex:1;background:#0a1e14;border:1px solid #1a3a22;border-radius:9px;padding:12px">'
+        '<div style="color:#00d4aa;font-size:.65rem;font-weight:800;letter-spacing:.08em;margin-bottom:8px">INPUT 2 — BETWEENNESS CENTRALITY</div>'
+        '<div style="font-size:.74rem;color:#8899aa;line-height:1.6">'
+        '<b style="color:#00d4aa">What it measures:</b> out of all the shortest paths '
+        'between any two junctions in the network, what fraction of them pass through this road?<br><br>'
+        '<b style="color:#00d4aa">High centrality</b> = this road is a critical bridge. '
+        'Blocking it cascades to many other routes.<br><br>'
+        '<b style="color:#00d4aa">Low centrality</b> = most traffic can easily bypass it. '
+        'Congestion stays local.</div>'
+        '<div style="margin-top:10px;background:#0d1f14;border-radius:6px;padding:8px 10px;font-size:.72rem">'
+        'centrality = <b style="color:#00d4aa">avg(node_bc[u], node_bc[v])</b><br>'
+        '<span style="color:#334;font-size:.67rem">computed by NetworkX betweenness_centrality(k=200)</span>'
+        '</div></div>'
+
+        '<div style="display:flex;align-items:center;font-size:1.6rem;color:#2a3a50;padding:0 4px">=</div>'
+
+        '<div style="flex:1;background:#120a22;border:2px solid #5533aa;border-radius:9px;padding:12px;'
+        'display:flex;flex-direction:column;justify-content:center;text-align:center">'
+        '<div style="color:#cc88ff;font-size:.65rem;font-weight:800;letter-spacing:.08em;margin-bottom:10px">PRIORITY SCORE</div>'
+        '<div style="font-size:.92rem;font-weight:800;color:#cc88ff;margin-bottom:8px;line-height:1.6">'
+        '<b style="color:#ff6b35">|&#948;|</b> &#215; <b style="color:#ff8833">decay(n)</b> &#215; <b style="color:#00d4aa">centrality</b></div>'
+        '<div style="color:#6655aa;font-size:.72rem;line-height:1.55">'
+        'Ranks every road segment for officer + barricade placement. '
+        'High score = deploy here first.</div>'
+        '</div>'
+
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── 2. Worked example ────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="background:#0d1117;border:1px solid #1e2535;border-radius:10px;padding:14px 16px;margin-bottom:12px">'
+        '<div style="color:#445;font-size:.62rem;font-weight:700;letter-spacing:.1em;margin-bottom:12px">'
+        'WORKED EXAMPLE — WHY HOP-3 CAN BEAT HOP-1</div>'
+        '<table style="width:100%;border-collapse:collapse;font-size:.8rem">'
+        '<thead><tr>'
+        '<td style="padding:0 0 8px;color:#334;border-bottom:1px solid #1e2535"></td>'
+        '<td style="text-align:center;padding:0 12px 8px;border-bottom:1px solid #1e2535">'
+        '<b style="color:#cc88ff">Brigade Rd</b></td>'
+        '<td style="text-align:center;padding:0 0 8px;border-bottom:1px solid #1e2535">'
+        '<b style="color:#554433">Infantry Rd</b></td>'
+        '</tr></thead>'
+        '<tbody>'
+        '<tr><td style="color:#556;padding:8px 0;border-bottom:1px solid #111827">Hops from event</td>'
+        '<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #111827">'
+        '<span style="background:#1a1a3a;color:#8899ff;border-radius:5px;padding:2px 11px;font-weight:800">3</span></td>'
+        '<td style="text-align:center;padding:8px 0;border-bottom:1px solid #111827">'
+        '<span style="background:#2a1800;color:#ff8833;border-radius:5px;padding:2px 11px;font-weight:800">1</span>'
+        '<span style="color:#334;font-size:.68rem;margin-left:5px">closer!</span></td></tr>'
+        '<tr><td style="color:#556;padding:8px 0;border-bottom:1px solid #111827">Hop decay weight</td>'
+        '<td style="text-align:center;color:#8899ff;font-weight:700;padding:8px 12px;border-bottom:1px solid #111827">&#215; 0.15</td>'
+        '<td style="text-align:center;color:#ff8833;font-weight:700;padding:8px 0;border-bottom:1px solid #111827">&#215; 0.70</td></tr>'
+        '<tr><td style="color:#556;padding:8px 0;border-bottom:2px solid #2a1a40">Betweenness centrality</td>'
+        '<td style="text-align:center;padding:8px 12px;border-bottom:2px solid #2a1a40">'
+        '<b style="color:#00d4aa">&#215; 0.90</b> <span style="color:#1a6655;font-size:.68rem">highest in zone</span></td>'
+        '<td style="text-align:center;padding:8px 0;border-bottom:2px solid #2a1a40">'
+        '<b style="color:#2a3535">&#215; 0.15</b> <span style="color:#222;font-size:.68rem">most paths bypass it</span></td></tr>'
+        '<tr><td style="color:#ccd;font-weight:700;padding:10px 0 6px">= Priority score</td>'
+        '<td style="text-align:center;padding:10px 12px 6px">'
+        '<div style="color:#cc88ff;font-size:1.1rem;font-weight:800">0.135</div>'
+        '<div style="color:#7755aa;font-size:.68rem">0.15 &#215; 0.90</div></td>'
+        '<td style="text-align:center;padding:10px 0 6px">'
+        '<div style="color:#443322;font-size:1.1rem;font-weight:800">0.105</div>'
+        '<div style="color:#332211;font-size:.68rem">0.70 &#215; 0.15</div></td></tr>'
+        '</tbody></table>'
+        '<div style="background:#0c0d20;border-left:3px solid #cc88ff;border-radius:0 6px 6px 0;'
+        'padding:9px 12px;margin-top:12px;font-size:.77rem;color:#8899bb;line-height:1.6">'
+        '<b style="color:#cc88ff">Brigade Rd wins (0.135 &gt; 0.105)</b> despite being 3 hops away. '
+        'Its centrality of 0.90 means nearly every alternate route in the zone passes through it. '
+        'One officer there relieves pressure across 6+ upstream segments simultaneously. '
+        'Infantry Rd is closer but a near dead-end in network terms &mdash; congestion there stays local.'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="background:linear-gradient(135deg,#1a1f3a 0%,#12102a 100%);'
+        'border:1px solid #3344aa;border-radius:10px;padding:13px 18px;margin-top:10px">'
+        '<div style="color:#7799ff;font-size:.62rem;font-weight:700;letter-spacing:.1em;margin-bottom:3px">WANT THE FULL PICTURE?</div>'
+        '<div style="color:#ccd;font-size:.86rem;font-weight:700">&#129504; Detailed version about the models</div>'
+        '<div style="color:#4455aa;font-size:.71rem;margin-top:2px">'
+        'Full network diagram &middot; all 5 roads ranked &middot; both LightGBM models explained &middot; step-by-step pipeline'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/1_ML_Models.py", label="Open ML Architecture Deep Dive →", icon="🧠", use_container_width=True)
+
+
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🚦 GridLock")
@@ -362,24 +504,56 @@ with st.container():
 
     col_f, col_p = st.columns([1, 1])
     with col_f:
-        st.markdown("""
-**Why this problem matters — 3 points:**
-
-- 🚦 **Events cause cascading jams nobody predicts in advance.**
-  A cricket match at Chinnaswamy doesn't just slow M.G. Road — it
-  backs up Residency, Kasturba, and Cubbon in a wave that spreads
-  outward. Police see it only after it's too late to stop.
-
-- 📋 **Officers are deployed reactively, not predictively.**
-  No system today tells a traffic superintendent *before* an event:
-  "put 4 officers here, close this road, reroute via MES Circle."
-  Decisions are made in real time under pressure, without data.
-
-- 📊 **Existing tools measure the past; GridLock forecasts the future.**
-  ASTraM logs incidents after they occur. SUMO simulates generic
-  flow. The decision layer between "event announced" and "officers
-  deployed" simply doesn't exist — GridLock builds it.
-""")
+        # ── Stat bar ──────────────────────────────────────────────────────────
+        st.markdown(
+            '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">'
+            '<div style="background:#1a0a0a;border:1px solid #441111;border-radius:8px;'
+            'padding:8px 14px;flex:1;min-width:110px;text-align:center">'
+            '<div style="color:#ff4455;font-size:1.35rem;font-weight:800">8,173</div>'
+            '<div style="color:#556;font-size:0.7rem">ASTraM events logged</div></div>'
+            '<div style="background:#1a0a0a;border:1px solid #441111;border-radius:8px;'
+            'padding:8px 14px;flex:1;min-width:110px;text-align:center">'
+            '<div style="color:#ff4455;font-size:1.35rem;font-weight:800">0</div>'
+            '<div style="color:#556;font-size:0.7rem">with advance prediction</div></div>'
+            '<div style="background:#0a1a12;border:1px solid #114411;border-radius:8px;'
+            'padding:8px 14px;flex:1;min-width:110px;text-align:center">'
+            '<div style="color:#00d4aa;font-size:1.35rem;font-weight:800">6</div>'
+            '<div style="color:#556;font-size:0.7rem">hop radius of impact</div></div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        # ── Problem vs Solution cards ──────────────────────────────────────────
+        _rows = [
+            ("🔴", "No segment-level warning",
+             "Officers react after jams form — the window to prevent is already gone.",
+             "🟢", "Per-segment δ ± CI, 24 h ahead",
+             "Every 15-min bin gets a congestion forecast before the event starts."),
+            ("🔴", "Gut-feel deployment",
+             "No system tells a superintendent which junction, which road, which time.",
+             "🟢", "Optimizer-placed, ≥63 % of optimal",
+             "Greedy submodular optimizer allocates officers + barricades under budget."),
+            ("🔴", "System learns nothing",
+             "Each event starts from scratch. Past outcomes are never used to improve.",
+             "🟢", "Post-event recalibration loop",
+             "Predicted vs actual δ shrinks error across events — the system gets smarter."),
+        ]
+        for p_icon, p_title, p_body, s_icon, s_title, s_body in _rows:
+            st.markdown(
+                '<div style="display:flex;gap:8px;margin-bottom:8px">'
+                f'<div style="flex:1;background:#120a0a;border:1px solid #331111;'
+                f'border-radius:8px;padding:10px 12px">'
+                f'<div style="color:#ff4455;font-size:0.72rem;font-weight:700;'
+                f'margin-bottom:4px">{p_icon} TODAY — {p_title}</div>'
+                f'<div style="color:#556;font-size:0.78rem;line-height:1.5">{p_body}</div>'
+                f'</div>'
+                f'<div style="flex:1;background:#0a120e;border:1px solid #114422;'
+                f'border-radius:8px;padding:10px 12px">'
+                f'<div style="color:#00d4aa;font-size:0.72rem;font-weight:700;'
+                f'margin-bottom:4px">{s_icon} GRIDLOCK — {s_title}</div>'
+                f'<div style="color:#556;font-size:0.78rem;line-height:1.5">{s_body}</div>'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
         st.markdown("""
         <div class="formula-box">
           <span style="color:#ff6b35">δ</span>
@@ -420,6 +594,120 @@ GridLock closes that gap in 3 steps:
                 f'<div style="color:{col};padding:3px 0;font-size:0.88rem">'
                 f'{icon} <b>Stage {num}</b> — {name} <span style="color:#556">({detail})</span></div>',
                 unsafe_allow_html=True)
+
+    # ── Two-model system flowchart ────────────────────────────────────────────
+    _train_col = (
+        '<div style="flex:1;background:#0d1117;border-radius:8px 0 0 8px;'
+        'padding:12px 14px;border:1px solid #1e2535;border-right:none">'
+        '<div style="color:#ffaa44;font-size:0.65rem;font-weight:700;'
+        'letter-spacing:.08em;margin-bottom:8px">TRAINING PHASE</div>'
+        '<div style="font-size:0.8rem;color:#889;line-height:1.75">'
+        '📦 Speed Panel (150 days)<br>'
+        '&nbsp;&nbsp;↓ <span style="color:#ff6b35">drop event-day rows</span><br>'
+        '&nbsp;&nbsp;↓ time-based 80/20 split<br>'
+        '&nbsp;&nbsp;↓ <b style="color:#aabbff">LightGBM #1 BASELINE</b><br>'
+        '&nbsp;&nbsp;&nbsp;&nbsp;segment + time + weather → normal speed<br>'
+        '&nbsp;&nbsp;↓ → <code style="color:#aabbff">baseline_predicted</code><br>'
+        '&nbsp;&nbsp;↓ <span style="color:#ff6b35">δ = observed − baseline</span><br>'
+        '&nbsp;&nbsp;↓ event-active rows only<br>'
+        '&nbsp;&nbsp;↓ <b style="color:#cc88ff">LightGBM #2 DELTA PREDICTOR</b><br>'
+        '&nbsp;&nbsp;&nbsp;&nbsp;hop + crowd + type → δ ± CI'
+        '</div></div>'
+    )
+    _arrow = (
+        '<div style="display:flex;align-items:center;padding:0 8px;'
+        'background:#111827;border-top:1px solid #1e2535;border-bottom:1px solid #1e2535">'
+        '<span style="color:#4488ff;font-size:1.3rem">⟶</span></div>'
+    )
+    _plan_col = (
+        '<div style="flex:1;background:#0d1117;border-radius:0 8px 8px 0;'
+        'padding:12px 14px;border:1px solid #1e2535;border-left:none">'
+        '<div style="color:#00d4aa;font-size:0.65rem;font-weight:700;'
+        'letter-spacing:.08em;margin-bottom:8px">PLANNING PHASE</div>'
+        '<div style="font-size:0.8rem;color:#889;line-height:1.75">'
+        '📝 Future event (type · crowd · location)<br>'
+        '&nbsp;&nbsp;↓ BFS hop distances from event junction<br>'
+        '&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#cc88ff;font-size:.75rem">'
+        'priority = |&delta;| &times; hop_decay &times; centrality</span><br>'
+        '&nbsp;&nbsp;↓ Baseline → <code style="color:#aabbff">baseline_predicted</code><br>'
+        '&nbsp;&nbsp;↓ <b style="color:#cc88ff">Delta Predictor</b><br>'
+        '&nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#ff6b35">predicted δ ± CI</span> per segment<br>'
+        '&nbsp;&nbsp;↓ 🗺️ Congestion Footprint Map<br>'
+        '&nbsp;&nbsp;↓ ⚙️ BPR Simulation (measure each intervention)<br>'
+        '&nbsp;&nbsp;↓ 📐 Optimizer (allocate under budget)<br>'
+        '&nbsp;&nbsp;↓ 📋 <b style="color:#ccd">Deployment Brief</b>'
+        '</div></div>'
+    )
+    st.markdown(
+        '<div style="margin-top:20px;border-top:1px solid #1e2535;padding-top:16px">'
+        '<div style="color:#556;font-size:0.68rem;font-weight:700;letter-spacing:.1em;'
+        'margin-bottom:10px">HOW THE TWO MODELS WORK TOGETHER</div>'
+        '<div style="display:flex;align-items:stretch;gap:0">'
+        + _train_col + _arrow + _plan_col +
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="background:linear-gradient(135deg,#1a1f3a 0%,#12102a 100%);'
+        'border:1px solid #3344aa;border-radius:10px;padding:12px 18px 6px 18px;margin-top:10px">'
+        '<div style="color:#7799ff;font-size:.62rem;font-weight:700;letter-spacing:.1em;margin-bottom:3px">WANT THE FULL PICTURE?</div>'
+        '<div style="color:#ccd;font-size:.85rem;font-weight:700">&#129504; Deep Dive — ML Architecture &amp; Scoring</div>'
+        '<div style="color:#4455aa;font-size:.71rem;margin-top:2px;margin-bottom:8px">'
+        'Two-model pipeline &middot; BFS diagram &middot; priority formula &middot; worked examples'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/1_ML_Models.py", label="Open ML Architecture Deep Dive →", icon="🧠", use_container_width=True)
+
+    # ── Three core technologies ────────────────────────────────────────────────
+    _c1 = (
+        '<div style="flex:1;background:#0d1228;border:1px solid #2a3555;'
+        'border-radius:9px;padding:12px 14px">'
+        '<div style="color:#aabbff;font-size:.68rem;font-weight:800;'
+        'letter-spacing:.08em;margin-bottom:7px">&#129504; TWO-MODEL ML</div>'
+        '<div style="color:#6677aa;font-size:.73rem;line-height:1.6">'
+        '<b style="color:#aabbff">Baseline</b> learns normal speed from non-event data.<br>'
+        '<b style="color:#cc88ff">Delta Predictor</b> forecasts km/h slowdown &#177; CI<br>'
+        'per segment per 15-min bin, before the event.</div>'
+        '</div>'
+    )
+    _c2 = (
+        '<div style="flex:1;background:#0d0a1e;border:1px solid #2a1a44;'
+        'border-radius:9px;padding:12px 14px">'
+        '<div style="color:#cc88ff;font-size:.68rem;font-weight:800;'
+        'letter-spacing:.08em;margin-bottom:7px">&#127758; PRIORITY SCORING</div>'
+        '<div style="color:#7766aa;font-size:.73rem;line-height:1.6">'
+        '<b style="color:#cc88ff">|&#948;| &#215; hop_decay &#215; centrality</b><br>'
+        '= which roads get officers first.<br>'
+        'A road 3 hops away can outrank one 1 hop away<br>'
+        'if it carries more of the network&rsquo;s traffic.<br>'
+        '<b style="color:#9966cc">Proximity &#8800; priority.</b></div>'
+        '<div style="margin-top:8px;font-size:.68rem;color:#4433aa">'
+        '&#8595; see Stage 6 for the full formula &amp; worked example</div>'
+        '</div>'
+    )
+    _c3 = (
+        '<div style="flex:1;background:#0a1e14;border:1px solid #1a4422;'
+        'border-radius:9px;padding:12px 14px">'
+        '<div style="color:#00d4aa;font-size:.68rem;font-weight:800;'
+        'letter-spacing:.08em;margin-bottom:7px">&#9881; SIMULATION + OPTIMIZER</div>'
+        '<div style="color:#336655;font-size:.73rem;line-height:1.6">'
+        'BPR simulator <b style="color:#00d4aa">measures</b> how much congestion<br>'
+        'each intervention removes &mdash; not guesses.<br>'
+        'Greedy optimizer allocates resources under budget,<br>'
+        'guaranteed <b style="color:#00d4aa">&#8805;63&#37; of optimal</b>.</div>'
+        '</div>'
+    )
+    st.markdown(
+        '<div style="margin-top:16px;border-top:1px solid #1e2535;padding-top:14px">'
+        '<div style="color:#556;font-size:.66rem;font-weight:700;letter-spacing:.1em;'
+        'margin-bottom:10px">THREE CORE TECHNOLOGIES</div>'
+        '<div style="display:flex;gap:10px;align-items:stretch">'
+        + _c1 + _c2 + _c3 +
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -446,6 +734,17 @@ elif cls1 == "done":
           path_layers=[(net_paths, 1)],
           scatter_layers=[(venue, 16)],
           height=280)
+    st.markdown(
+        '<div style="margin-top:10px;background:#0a1e14;border-left:3px solid #00d4aa;'
+        'border-radius:0 7px 7px 0;padding:9px 14px;font-size:.82rem;color:#5a8a78">'
+        '<b style="color:#00d4aa">Betweenness centrality</b> is computed here for every segment — '
+        'the fraction of all network shortest paths that pass through it. '
+        'High centrality = critical bridge. '
+        '<span style="color:#336655">This feeds the priority formula used in Stage 6: '
+        '<b style="color:#cc88ff">|&#948;| &times; hop_decay &times; centrality</b></span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 else:  # active
     st.markdown("""
@@ -453,6 +752,16 @@ else:  # active
     real road graph from OpenStreetMap via OSMnx — every junction, every segment,
     real lane counts and speed limits.
     """)
+    st.markdown(
+        '<div style="background:#0a1e14;border-left:3px solid #00d4aa;'
+        'border-radius:0 7px 7px 0;padding:9px 14px;font-size:.82rem;color:#5a8a78;margin-bottom:10px">'
+        '<b style="color:#00d4aa">Betweenness centrality</b> — the fraction of all shortest paths '
+        'in the network that pass through each road. High centrality = critical bridge. '
+        '<span style="color:#336655">Used in Stage 6 priority formula: '
+        '<b style="color:#cc88ff">|&#948;| &times; hop_decay &times; centrality</b></span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     _insight("Using Chinnaswamy Stadium coordinates runs instantly (cached graph). "
              "Any other coordinates trigger a live OSMnx download (~30–60s).")
 
@@ -781,60 +1090,251 @@ elif cls4 == "done":
         f'</div>', unsafe_allow_html=True)
 
 else:  # active
-    _insight(
-        "<b>The most important rule:</b> the baseline is trained ONLY on non-event rows "
-        "(<code>is_event_day = False</code>). If event traffic leaked in, the model would "
-        "learn 'sometimes roads are slow for no reason' — shrinking the delta and "
-        "undercounting event impact. This filter is the single most critical guarantee in the pipeline."
-    )
-    st.markdown("This will run live: LightGBM baseline (~10s) → compute deltas → train delta predictor (~5s)")
+    # ── WHY this model exists ─────────────────────────────────────────────
+    st.markdown("""
+    <div class="formula-box">
+      <span style="color:#aab;font-size:0.8rem;letter-spacing:0.06em">
+        WHY WE NEED A BASELINE MODEL
+      </span><br><br>
+      To measure event impact we need a counterfactual —
+      <em>"what would speed be here right now if no event existed?"</em><br><br>
+      <span style="color:#aabbff;font-weight:700">baseline_speed</span>
+      &nbsp;=&nbsp; LightGBM trained <b>only on normal-traffic days</b>
+      &nbsp;→&nbsp; the counterfactual prediction<br><br>
+      <span style="color:#ff6b35;font-size:1.15rem;font-weight:700">δ</span>
+      &nbsp;=&nbsp;
+      <span style="color:#00d4aa">observed_speed</span>
+      &nbsp;−&nbsp;
+      <span style="color:#aabbff">baseline_speed</span>
+      &nbsp;&nbsp;
+      <span style="color:#556;font-size:0.9rem">
+        ← event's contribution, isolated from rush-hour &amp; weather
+      </span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    if st.button("🧠  CALIBRATE AI", use_container_width=True, type="primary"):
-        with st.status("Calibrating AI systems…", expanded=True) as status:
+    # ── 6-step pipeline preview ───────────────────────────────────────────
+    st.markdown("### 🔬 6-step pipeline — what's about to run")
+
+    _tot = len(ss.featured) if ss.featured is not None else 0
+    _segs = (ss.featured["segment_id"].nunique()
+             if ss.featured is not None and "segment_id" in ss.featured.columns else "?")
+
+    r1a, r1b, r1c = st.columns(3)
+    with r1a:
+        st.markdown(f"""
+        <div style="background:#0d1117;border-radius:10px;padding:16px;
+                    border-left:4px solid #334466;min-height:160px;margin-bottom:8px">
+          <div style="color:#7799bb;font-size:0.68rem;font-weight:700;
+                      letter-spacing:.1em;margin-bottom:6px">STEP 1 · SOURCE DATA</div>
+          <div style="color:#eee;font-size:1rem;font-weight:700;margin-bottom:8px">
+            📦 Speed Panel</div>
+          <div style="color:#889;font-size:0.83rem;line-height:1.6">
+            From Stage 3: <b style="color:#ccd">{_segs} segments × 96 bins/day</b><br>
+            One row = one road segment × one 15-min time slice<br>
+            Columns: <code>segment_id, hour, weekday, is_rain,
+            observed_speed, is_event_day</code>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    with r1b:
+        st.markdown(f"""
+        <div style="background:#0d1117;border-radius:10px;padding:16px;
+                    border-left:4px solid #cc3300;min-height:160px;margin-bottom:8px">
+          <div style="color:#ff6b35;font-size:0.68rem;font-weight:700;
+                      letter-spacing:.1em;margin-bottom:6px">STEP 2 · ⚠️ CRITICAL FILTER</div>
+          <div style="color:#eee;font-size:1rem;font-weight:700;margin-bottom:8px">
+            🚫 Drop Event-Day Rows</div>
+          <div style="color:#889;font-size:0.83rem;line-height:1.6">
+            Remove all rows where <code>is_event_day = True</code><br>
+            <b style="color:#ff9966">Without this</b>: model learns "slow = normal"
+            → delta shrinks → event impact undercounted<br>
+            <b style="color:#00d4aa">With this</b>: baseline knows only normal traffic
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    with r1c:
+        st.markdown(f"""
+        <div style="background:#0d1117;border-radius:10px;padding:16px;
+                    border-left:4px solid #005577;min-height:160px;margin-bottom:8px">
+          <div style="color:#00d4aa;font-size:0.68rem;font-weight:700;
+                      letter-spacing:.1em;margin-bottom:6px">STEP 3 · TIME-BASED SPLIT</div>
+          <div style="color:#eee;font-size:1rem;font-weight:700;margin-bottom:8px">
+            📅 Train / Test Split</div>
+          <div style="color:#889;font-size:0.83rem;line-height:1.6">
+            <b style="color:#ccd">First 80% of dates</b> → Train set<br>
+            <b style="color:#ccd">Last 20% of dates</b> → Test set<br>
+            ⚠️ <b style="color:#ffcc44">Never random</b> — random split leaks
+            future traffic patterns into training, inflating metrics
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    r2a, r2b, r2c = st.columns(3)
+    with r2a:
+        st.markdown(f"""
+        <div style="background:#0d1117;border-radius:10px;padding:16px;
+                    border-left:4px solid #664400;min-height:160px;margin-bottom:8px">
+          <div style="color:#ffaa44;font-size:0.68rem;font-weight:700;
+                      letter-spacing:.1em;margin-bottom:6px">STEP 4 · BASELINE MODEL</div>
+          <div style="color:#eee;font-size:1rem;font-weight:700;margin-bottom:8px">
+            🧠 Train LightGBM #1</div>
+          <div style="color:#889;font-size:0.83rem;line-height:1.6">
+            Input: non-event rows only<br>
+            Learns: <code>segment + time + weather → normal speed</code><br>
+            300 trees · <code>segment_code</code> dominates (each road
+            has its own demand profile)<br>
+            Output: <code>baseline_predicted</code> per row
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    with r2b:
+        st.markdown(f"""
+        <div style="background:#0d1117;border-radius:10px;padding:16px;
+                    border-left:4px solid #005533;min-height:160px;margin-bottom:8px">
+          <div style="color:#00d4aa;font-size:0.68rem;font-weight:700;
+                      letter-spacing:.1em;margin-bottom:6px">STEP 5 · DELTA + VALIDATION</div>
+          <div style="color:#eee;font-size:1rem;font-weight:700;margin-bottom:8px">
+            ⚡ δ = Observed − Baseline</div>
+          <div style="color:#889;font-size:0.83rem;line-height:1.6">
+            Computed for every row (event + non-event)<br>
+            <b style="color:#ccd">Bias check</b>: non-event mean δ must be ≈ 0<br>
+            If not zero → baseline is biased → all downstream
+            deltas are wrong and unusable
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    with r2c:
+        st.markdown(f"""
+        <div style="background:#0d1117;border-radius:10px;padding:16px;
+                    border-left:4px solid #440066;min-height:160px;margin-bottom:8px">
+          <div style="color:#cc88ff;font-size:0.68rem;font-weight:700;
+                      letter-spacing:.1em;margin-bottom:6px">STEP 6 · DELTA PREDICTOR</div>
+          <div style="color:#eee;font-size:1rem;font-weight:700;margin-bottom:8px">
+            🔮 Train LightGBM #2</div>
+          <div style="color:#889;font-size:0.83rem;line-height:1.6">
+            Filter: event-active rows only · Label: measured δ from Step 5<br>
+            <code>hop_distance + crowd + event_type → predicted δ</code><br>
+            Outputs a confidence interval per segment<br>
+            Forecasts future event impact <b style="color:#ccd">before it happens</b>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    st.divider()
+    st.caption(
+        "⏱ Estimated runtime: "
+        "Step 1–3 (data prep) ~2s · "
+        "Step 4 (LightGBM baseline) ~10s · "
+        "Step 5 (delta) ~2s · "
+        "Step 6 (delta predictor) ~5s"
+    )
+
+    if st.button("🧠  CALIBRATE AI — Run All 6 Steps Live",
+                 use_container_width=True, type="primary"):
+        with st.status("Running 6-step AI calibration…", expanded=True) as status:
             from features import split_baseline_data
             from baseline_model import BaselineModel
             from delta import compute_deltas, validate_baseline
             from delta_predictor import DeltaPredictor, build_predictor_training_data
 
-            status.write("⟳  Splitting data — filtering OUT all event-day rows…")
-            split = split_baseline_data(ss.featured)
-            status.write(f"✓  Train: {len(split['X_train']):,} non-event rows  "
-                         f"| Test: {len(split['X_test']):,} rows  "
-                         f"| Excluded: {split['n_excluded_event_rows']:,} event rows")
-            time.sleep(0.3)
+            # Step 1
+            status.write("**Step 1 / 6** · Loading speed panel from session state…")
+            _n_tot = len(ss.featured)
+            _n_seg = (ss.featured["segment_id"].nunique()
+                      if "segment_id" in ss.featured.columns else "?")
+            status.write(f"✓  {_n_tot:,} rows · {_n_seg} segments · 96 bins/day")
 
-            status.write("⟳  Training LightGBM baseline (300 trees, time-based split)…")
+            # Step 2
+            status.write(
+                "**Step 2 / 6** · Filtering OUT event-day rows "
+                "(`is_event_day = True`)…"
+            )
+            split = split_baseline_data(ss.featured)
+            _kept = len(split["X_train"]) + len(split["X_test"])
+            _excl = split["n_excluded_event_rows"]
+            status.write(
+                f"✓  Kept {_kept:,} non-event rows  |  "
+                f"Excluded {_excl:,} event-day rows  "
+                f"({round(100 * _excl / max(_n_tot, 1))}% of panel removed)"
+            )
+
+            # Step 3
+            status.write(
+                "**Step 3 / 6** · Time-based 80/20 split "
+                "(chronological — never random)…"
+            )
+            status.write(
+                f"✓  Train: {len(split['X_train']):,} rows "
+                f"(first 80% of non-event dates)  |  "
+                f"Test: {len(split['X_test']):,} rows (last 20%)"
+            )
+            time.sleep(0.2)
+
+            # Step 4
+            status.write(
+                "**Step 4 / 6** · Training LightGBM baseline — "
+                "300 trees on normal-traffic data…"
+            )
             bm = BaselineModel()
             metrics = bm.train(split, ss.seg_cats)
-            status.write(f"✓  Baseline — Train MAE: {metrics['train_mae']:.2f} km/h  "
-                         f"| Test MAE: {metrics['test_mae']:.2f} km/h")
-            time.sleep(0.3)
+            status.write(
+                f"✓  Baseline trained  |  "
+                f"Train MAE: {metrics['train_mae']:.2f} km/h  |  "
+                f"Test MAE: {metrics['test_mae']:.2f} km/h"
+            )
+            time.sleep(0.2)
 
-            status.write("⟳  Computing delta = observed − baseline for all rows…")
+            # Step 5
+            status.write(
+                "**Step 5 / 6** · Computing δ = observed − baseline "
+                "for every row in the panel…"
+            )
             panel_d = compute_deltas(ss.featured, bm)
             checks_v = validate_baseline(panel_d)
-            status.write(f"✓  Non-event delta mean: {checks_v['non_event_delta_mean']:+.3f} km/h "
-                         f"(want ≈ 0 — baseline is unbiased ✅)")
-            time.sleep(0.3)
+            _mean = checks_v["non_event_delta_mean"]
+            _bias_label = "✅ unbiased — baseline is correct" if abs(_mean) < 0.5 \
+                          else "⚠️ bias detected — check baseline training"
+            status.write(
+                f"✓  Delta computed  |  "
+                f"Non-event mean δ: {_mean:+.4f} km/h  →  {_bias_label}"
+            )
+            time.sleep(0.2)
 
-            status.write("⟳  Building delta predictor training data from event-active rows…")
-            train_df = build_predictor_training_data(panel_d, ss.event_days, ss.G, ss.seg_info)
-            status.write(f"✓  {len(train_df):,} event rows across "
-                         f"{train_df['date'].nunique()} event-dates")
-            time.sleep(0.3)
+            # Step 6
+            status.write(
+                "**Step 6 / 6** · Building delta predictor training data "
+                "from event-active rows…"
+            )
+            train_df = build_predictor_training_data(
+                panel_d, ss.event_days, ss.G, ss.seg_info
+            )
+            status.write(
+                f"✓  {len(train_df):,} event rows across "
+                f"{train_df['date'].nunique()} event-dates"
+            )
 
             if not train_df.empty:
-                status.write("⟳  Training delta predictor (maps event features → predicted Δ)…")
+                status.write(
+                    "**Step 6 / 6** · Training LightGBM delta predictor "
+                    "(event features → predicted Δ)…"
+                )
                 dp = DeltaPredictor()
                 dp_metrics = dp.train(train_df)
-                status.write(f"✓  Delta predictor — "
-                             f"Train MAE: {dp_metrics['train_mae_kmh']} km/h  "
-                             f"| Test MAE: {dp_metrics['test_mae_kmh']} km/h")
+                status.write(
+                    f"✓  Delta predictor trained  |  "
+                    f"Train MAE: {dp_metrics['train_mae_kmh']} km/h  |  "
+                    f"Test MAE: {dp_metrics['test_mae_kmh']} km/h"
+                )
             else:
                 dp = DeltaPredictor.load()
-                status.write("ℹ  Loaded pre-trained delta predictor (no new event data)")
+                status.write(
+                    "ℹ  Loaded pre-trained delta predictor "
+                    "(no new event data to train on)"
+                )
 
-            status.update(label="AI calibration complete! ✅", state="complete")
+            status.update(
+                label="✅  All 6 steps complete — AI calibration successful!",
+                state="complete"
+            )
 
         ss.bm, ss.dp = bm, dp
         ss.panel_d = panel_d
@@ -1198,6 +1698,9 @@ elif cls6 in ("done", "active"):
     to produce a predicted Δ km/h with an 87% confidence interval.
     This runs entirely <em>before</em> the event happens — pure forecasting.
     </div>""".format(segs=len(ss.seg_info) if ss.seg_info else 0), unsafe_allow_html=True)
+
+    with st.expander("📐 Priority Scoring Formula — how |δ| × hop_decay × centrality ranks every road", expanded=False):
+        _priority_scoring_detail()
 
     # Auto-run prediction when stage becomes active
     if cls6 == "active" and not ss.footprint_done:

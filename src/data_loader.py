@@ -69,11 +69,17 @@ def clean_coordinates(df):
 
 
 def filter_to_zone(df, venue_lat=VENUE_LAT, venue_lng=VENUE_LNG, radius_m=ZONE_RADIUS_M):
-    """Keep only events within radius_m of the venue."""
-    df["dist_to_venue_m"] = df.apply(
-        lambda r: haversine_m(venue_lat, venue_lng, r["latitude"], r["longitude"]),
-        axis=1,
-    )
+    """Keep only events within radius_m of the venue. Vectorised — no row-by-row loop."""
+    R = 6_371_000.0
+    lat1 = np.radians(venue_lat)
+    lng1 = np.radians(venue_lng)
+    lat2 = np.radians(df["latitude"].values)
+    lng2 = np.radians(df["longitude"].values)
+    dlat = lat2 - lat1
+    dlng = lng2 - lng1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlng / 2) ** 2
+    df = df.copy()
+    df["dist_to_venue_m"] = np.round(R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a)), 1)
     in_zone = df[df["dist_to_venue_m"] <= radius_m].copy()
     print(f"  {len(in_zone):,} events within {radius_m}m of venue")
     return in_zone

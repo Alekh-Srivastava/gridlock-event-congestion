@@ -1,7 +1,7 @@
 """
 GridLock — Event-Driven Traffic Intelligence
 Streamlit UI showcasing all 11 pipeline stages.
-Maps: Plotly Scattermapbox (carto-darkmatter, no token required)
+Maps: folium + streamlit-folium (CartoDB DarkMatter, no token required)
 Charts: Altair 6
 
 Run: streamlit run app.py  (from the event_congestion_project/ directory)
@@ -13,7 +13,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import altair as alt
-import plotly.graph_objects as go
+import folium
+from streamlit_folium import st_folium
 import streamlit as st
 
 ROOT = Path(__file__).parent
