@@ -12,7 +12,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import altair as alt
-import pydeck as pdk
+import folium
+from streamlit_folium import st_folium
 import streamlit as st
 
 ROOT = Path(__file__).parent
@@ -104,29 +105,6 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
-# Streamlit's bundled pydeck JS calls mapStyle.indexOf() — only strings work.
-# Encoding the raster style as a data: URL gives us a string that MapLibre
-# loads inline (no external fetch for the style JSON; only tile PNGs needed).
-import base64 as _b64
-_RASTER_STYLE = {
-    "version": 8,
-    "sources": {
-        "carto-dark": {
-            "type": "raster",
-            "tiles": [
-                "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-                "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-            ],
-            "tileSize": 256,
-            "attribution": "© CARTO © OpenStreetMap contributors",
-        }
-    },
-    "layers": [{"id": "carto-bg", "type": "raster", "source": "carto-dark"}],
-}
-_MAP_STYLE = (
-    "data:application/json;base64,"
-    + _b64.b64encode(json.dumps(_RASTER_STYLE).encode()).decode()
-)
 
 DEFAULT_LAT, DEFAULT_LNG = 12.9788, 77.5996
 
@@ -233,15 +211,66 @@ def _seg_paths(G, seg_info, color_fn=None, default_color=None):
         })
     return rows
 
-def _deck(layers, lat, lng, zoom=13.5, height=400):
-    return st.pydeck_chart(
-        pdk.Deck(layers=layers,
-                 initial_view_state=pdk.ViewState(latitude=lat, longitude=lng,
-                                                   zoom=zoom, pitch=0),
-                 map_style=_MAP_STYLE,
-                 tooltip={"text": "{road}"}),
-        use_container_width=True, height=height,
+def _make_map(lat, lng, zoom=13.5):
+    return folium.Map(
+        location=[lat, lng],
+        zoom_start=zoom,
+        tiles="CartoDB DarkMatter",
+        attr="© CARTO © OpenStreetMap contributors",
+        prefer_canvas=True,
     )
+
+def _add_path_layer(m, data, width=2):
+    if not data:
+        return
+    features = []
+    for row in data:
+        c = row["color"]
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": row["path"]},
+            "properties": {
+                "tooltip": row.get("road") or row.get("label") or "",
+                "color": "#{:02x}{:02x}{:02x}".format(c[0], c[1], c[2]),
+                "opacity": round(c[3] / 255, 2) if len(c) > 3 else 0.8,
+            },
+        })
+    folium.GeoJson(
+        {"type": "FeatureCollection", "features": features},
+        style_function=lambda x: {
+            "color": x["properties"]["color"],
+            "weight": width,
+            "opacity": x["properties"]["opacity"],
+            "fillOpacity": 0,
+        },
+        tooltip=folium.GeoJsonTooltip(fields=["tooltip"], labels=False, sticky=False),
+    ).add_to(m)
+
+def _add_scatter_layer(m, data, radius=8):
+    for row in data:
+        pos = row["position"]
+        c = row["color"]
+        hex_c = "#{:02x}{:02x}{:02x}".format(c[0], c[1], c[2])
+        op = round(c[3] / 255, 2) if len(c) > 3 else 0.9
+        r = row.get("radius", radius)
+        tip = row.get("road") or row.get("label") or ""
+        folium.CircleMarker(
+            [pos[1], pos[0]],
+            radius=r,
+            color=hex_c,
+            fill=True,
+            fill_color=hex_c,
+            fill_opacity=op,
+            tooltip=tip,
+        ).add_to(m)
+
+def _deck(lat, lng, path_layers=None, scatter_layers=None, zoom=13.5, height=400):
+    m = _make_map(lat, lng, zoom)
+    for data, width in (path_layers or []):
+        _add_path_layer(m, data, width)
+    for data, radius in (scatter_layers or []):
+        _add_scatter_layer(m, data, radius)
+    st_folium(m, use_container_width=True, height=height, returned_objects=[])
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -412,12 +441,11 @@ elif cls1 == "done":
                 unsafe_allow_html=True)
     # Compact map
     net_paths = _seg_paths(G, seg_info, default_color=[50, 80, 130, 180])
-    layer = pdk.Layer("PathLayer", data=net_paths, get_path="path", get_color="color",
-                      get_width=1, width_units="pixels", pickable=True)
     venue = [{"position": [ss.zone_lng, ss.zone_lat], "color": [255,107,53,255], "road": "Target venue"}]
-    vl    = pdk.Layer("ScatterplotLayer", data=venue, get_position="position",
-                      get_fill_color="color", get_radius=16, radius_units="pixels")
-    _deck([layer, vl], ss.zone_lat, ss.zone_lng, height=280)
+    _deck(ss.zone_lat, ss.zone_lng,
+          path_layers=[(net_paths, 1)],
+          scatter_layers=[(venue, 16)],
+          height=280)
 
 else:  # active
     st.markdown("""
@@ -524,42 +552,10 @@ elif cls2 == "done":
         "radius": 20,
     }]
 
-    net_layer = pdk.Layer(
-        "PathLayer", data=net_paths,
-        get_path="path", get_color="color",
-        get_width=1, width_units="pixels",
-    )
-    ev_layer = pdk.Layer(
-        "ScatterplotLayer", data=event_pts,
-        get_position="position",
-        get_fill_color="color",
-        get_radius="radius",
-        radius_units="pixels",
-        pickable=True,
-        auto_highlight=True,
-    )
-    venue_layer = pdk.Layer(
-        "ScatterplotLayer", data=venue_pts,
-        get_position="position",
-        get_fill_color="color",
-        get_radius="radius",
-        radius_units="pixels",
-        pickable=True,
-    )
-
-    st.pydeck_chart(
-        pdk.Deck(
-            layers=[net_layer, ev_layer, venue_layer],
-            initial_view_state=pdk.ViewState(
-                latitude=ss.zone_lat, longitude=ss.zone_lng,
-                zoom=13.5, pitch=0,
-            ),
-            map_style=_MAP_STYLE,
-            tooltip={"text": "{label}"},
-        ),
-        use_container_width=True,
-        height=420,
-    )
+    _deck(ss.zone_lat, ss.zone_lng,
+          path_layers=[(net_paths, 1)],
+          scatter_layers=[(event_pts, 8), (venue_pts, 8)],
+          zoom=13.5, height=420)
 
     # Legend
     leg_cols = st.columns(len(_TYPE_COLORS) + 1)
@@ -1252,13 +1248,10 @@ elif cls6 in ("done", "active"):
             venue_pts = [{"position": [G.nodes[ev["junction"]]["lng"],
                                        G.nodes[ev["junction"]]["lat"]],
                           "color": [255,255,255,255], "road": "Event location"}]
-            base_l  = pdk.Layer("PathLayer", data=net_base, get_path="path",
-                                get_color="color", get_width=1, width_units="pixels")
-            hot_l   = pdk.Layer("PathLayer", data=hot_paths, get_path="path",
-                                get_color="color", get_width=4, width_units="pixels", pickable=True)
-            venue_l = pdk.Layer("ScatterplotLayer", data=venue_pts, get_position="position",
-                                get_fill_color="color", get_radius=16, radius_units="pixels")
-            _deck([base_l, hot_l, venue_l], ss.zone_lat, ss.zone_lng, height=420)
+            _deck(ss.zone_lat, ss.zone_lng,
+                  path_layers=[(net_base, 1), (hot_paths, 4)],
+                  scatter_layers=[(venue_pts, 16)],
+                  height=420)
             lc1, lc2, lc3, lc4 = st.columns(4)
             lc1.markdown("🔴 **SEVERE** < −10 km/h")
             lc2.markdown("🟠 **MODERATE** −5 to −10")
@@ -1513,15 +1506,10 @@ viable alternate routes — three different criteria, by design.
             ev_jn = ss.event_spec["junction"]
             venue_pts = [{"position":[G.nodes[ev_jn]["lng"],G.nodes[ev_jn]["lat"]],
                           "color":[255,255,255,255],"road":"Event location"}]
-            base_l   = pdk.Layer("PathLayer",data=net_base,get_path="path",
-                                 get_color="color",get_width=1,width_units="pixels")
-            hot_l    = pdk.Layer("PathLayer",data=hot_paths,get_path="path",
-                                 get_color="color",get_width=4,width_units="pixels",pickable=True)
-            off_l    = pdk.Layer("ScatterplotLayer",data=officer_pts,get_position="position",
-                                 get_fill_color="color",get_radius=14,radius_units="pixels",pickable=True)
-            venue_l  = pdk.Layer("ScatterplotLayer",data=venue_pts,get_position="position",
-                                 get_fill_color="color",get_radius=18,radius_units="pixels")
-            _deck([base_l,hot_l,venue_l,off_l], ss.zone_lat, ss.zone_lng, height=420)
+            _deck(ss.zone_lat, ss.zone_lng,
+                  path_layers=[(net_base, 1), (hot_paths, 4)],
+                  scatter_layers=[(venue_pts, 18), (officer_pts, 14)],
+                  height=420)
             st.caption("🔴/🟠 = congested segments · 🟠 dots = officer positions · ⚪ dot = event location")
 
 st.markdown('</div>', unsafe_allow_html=True)
