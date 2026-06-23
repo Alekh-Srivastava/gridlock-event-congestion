@@ -411,7 +411,8 @@ def _priority_scoring_detail():
         '</div></div>',
         unsafe_allow_html=True,
     )
-    st.page_link("pages/1_ML_Models.py", label="Open ML Architecture Deep Dive →", icon="🧠", use_container_width=True)
+    if st.button("🧠 Open ML Architecture Deep Dive →", use_container_width=True, key="ml_dive_top"):
+        st.switch_page("pages/1_ML_Models.py")
 
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
@@ -657,7 +658,8 @@ GridLock closes that gap in 3 steps:
         '</div></div>',
         unsafe_allow_html=True,
     )
-    st.page_link("pages/1_ML_Models.py", label="Open ML Architecture Deep Dive →", icon="🧠", use_container_width=True)
+    if st.button("🧠 Open ML Architecture Deep Dive →", use_container_width=True, key="ml_dive_bottom"):
+        st.switch_page("pages/1_ML_Models.py")
 
     # ── Three core technologies ────────────────────────────────────────────────
     _c1 = (
