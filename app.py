@@ -1,7 +1,7 @@
 """
 GridLock — Event-Driven Traffic Intelligence
 Streamlit UI showcasing all 11 pipeline stages.
-Maps: pydeck (WebGL, CARTO dark basemap — no Mapbox token required)
+Maps: folium + streamlit-folium (CartoDB DarkMatter, no token required)
 Charts: Altair 6
 
 Run: streamlit run app.py  (from the event_congestion_project/ directory)
@@ -13,7 +13,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import altair as alt
-import pydeck as pdk
+import folium
+from streamlit_folium import st_folium
 import streamlit as st
 
 ROOT = Path(__file__).parent
@@ -85,35 +86,12 @@ def _dark(chart, height=320):
         .configure_title(color="#eeeeee")
     )
 
-# ── PyDeck helpers ────────────────────────────────────────────────────────────
-# Streamlit's bundled pydeck JS calls mapStyle.indexOf() — only strings work.
-# Encoding the raster style as a data: URL gives us a string that MapLibre
-# loads inline (no external fetch for the style JSON; only tile PNGs needed).
-import base64 as _b64
-_RASTER_STYLE = {
-    "version": 8,
-    "sources": {
-        "carto-dark": {
-            "type": "raster",
-            "tiles": [
-                "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-                "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-            ],
-            "tileSize": 256,
-            "attribution": "© CARTO © OpenStreetMap contributors",
-        }
-    },
-    "layers": [{"id": "carto-bg", "type": "raster", "source": "carto-dark"}],
-}
-_MAP_STYLE = (
-    "data:application/json;base64,"
-    + _b64.b64encode(json.dumps(_RASTER_STYLE).encode()).decode()
-)
-
-_VENUE_VIEW = pdk.ViewState(latitude=12.9788, longitude=77.5996, zoom=14, pitch=0)
+# ── Folium map helpers ────────────────────────────────────────────────────────
+_VENUE_LAT = 12.9788
+_VENUE_LNG = 77.5996
 
 def _seg_paths(G, seg_info, color_fn=None, default_color=None):
-    """Build list-of-dicts for pdk PathLayer from seg_info."""
+    """Build list-of-dicts (path=[[lng,lat],...], color=[R,G,B,A]) from seg_info."""
     default_color = default_color or [40, 60, 90, 160]
     rows = []
     for sid, info in seg_info.items():
@@ -129,28 +107,59 @@ def _seg_paths(G, seg_info, color_fn=None, default_color=None):
         })
     return rows
 
-def _path_layer(data, id="net", width=2):
-    return pdk.Layer("PathLayer", data=data, id=id,
-                     get_path="path", get_color="color",
-                     get_width=width, width_units="pixels",
-                     pickable=True, auto_highlight=True)
-
-def _scatter_layer(data, id="pts", radius=12, color_field="color"):
-    return pdk.Layer("ScatterplotLayer", data=data, id=id,
-                     get_position="position",
-                     get_fill_color=color_field,
-                     get_radius=radius,
-                     radius_units="pixels",
-                     pickable=True)
-
-def _deck(layers, view=None, height=480):
-    return st.pydeck_chart(
-        pdk.Deck(layers=layers, initial_view_state=view or _VENUE_VIEW,
-                 map_style=_MAP_STYLE,
-                 tooltip={"text": "{road}"}),
-        use_container_width=True,
-        height=height,
+def _make_map(lat=_VENUE_LAT, lng=_VENUE_LNG, zoom=14):
+    return folium.Map(
+        location=[lat, lng],
+        zoom_start=zoom,
+        tiles="CartoDB DarkMatter",
+        attr="© CARTO © OpenStreetMap contributors",
+        prefer_canvas=True,
     )
+
+def _add_path_layer(m, data, width=2):
+    if not data:
+        return
+    features = []
+    for row in data:
+        c = row["color"]
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": row["path"]},
+            "properties": {
+                "road": row.get("road", ""),
+                "color": "#{:02x}{:02x}{:02x}".format(c[0], c[1], c[2]),
+                "opacity": round(c[3] / 255, 2) if len(c) > 3 else 0.8,
+            },
+        })
+    folium.GeoJson(
+        {"type": "FeatureCollection", "features": features},
+        style_function=lambda x: {
+            "color": x["properties"]["color"],
+            "weight": width,
+            "opacity": x["properties"]["opacity"],
+            "fillOpacity": 0,
+        },
+        tooltip=folium.GeoJsonTooltip(fields=["road"], labels=False, sticky=False),
+    ).add_to(m)
+
+def _add_scatter_layer(m, data, radius=8):
+    for row in data:
+        pos = row["position"]
+        c = row["color"]
+        hex_c = "#{:02x}{:02x}{:02x}".format(c[0], c[1], c[2])
+        op = round(c[3] / 255, 2) if len(c) > 3 else 0.9
+        folium.CircleMarker(
+            [pos[1], pos[0]],
+            radius=radius,
+            color=hex_c,
+            fill=True,
+            fill_color=hex_c,
+            fill_opacity=op,
+            tooltip=row.get("road", ""),
+        ).add_to(m)
+
+def _show_map(m, height=480):
+    st_folium(m, use_container_width=True, height=height, returned_objects=[])
 
 # ── Severity colour ───────────────────────────────────────────────────────────
 def _severity_color(delta):
@@ -372,11 +381,11 @@ elif "Road Network" in page:
         venue_pts = [{"position": [77.5996, 12.9788], "color": [255, 107, 53, 255],
                       "road": "Chinnaswamy Stadium"}]
 
-        _deck([
-            _path_layer(net_paths, "net", 2),
-            _scatter_layer(jn_pts, "junctions", 10),
-            _scatter_layer(venue_pts, "venue", 18),
-        ])
+        m = _make_map()
+        _add_path_layer(m, net_paths, 2)
+        _add_scatter_layer(m, jn_pts, 10)
+        _add_scatter_layer(m, venue_pts, 18)
+        _show_map(m)
         col_leg1, col_leg2, col_leg3 = st.columns(3)
         if show_bc:
             col_leg1.markdown("🟠 High centrality — bottleneck")
@@ -467,11 +476,11 @@ elif "ASTraM" in page:
                 })
         venue_pts = [{"position": [77.5996, 12.9788], "color": [255,255,255,255], "road": "Chinnaswamy Stadium"}]
 
-        _deck([
-            _path_layer(net_paths, "net", 1),
-            _scatter_layer(ev_pts, "evts", 8),
-            _scatter_layer(venue_pts, "venue", 16),
-        ])
+        m = _make_map()
+        _add_path_layer(m, net_paths, 1)
+        _add_scatter_layer(m, ev_pts, 8)
+        _add_scatter_layer(m, venue_pts, 16)
+        _show_map(m)
 
     with tab2:
         l, r = st.columns(2)
@@ -878,11 +887,11 @@ elif "Predictor" in page:
         venue_pts = [{"position":[G.nodes[jn_node]["lng"], G.nodes[jn_node]["lat"]],
                       "color":[255,107,53,255], "road":"Event Location"}]
 
-        _deck([
-            _path_layer(net_base, "base", 1),
-            _path_layer(footprint_paths, "fp", 4),
-            _scatter_layer(venue_pts, "venue", 18),
-        ])
+        m = _make_map()
+        _add_path_layer(m, net_base, 1)
+        _add_path_layer(m, footprint_paths, 4)
+        _add_scatter_layer(m, venue_pts, 18)
+        _show_map(m)
 
         # Legend
         lc1, lc2, lc3, lc4 = st.columns(4)
@@ -1111,12 +1120,12 @@ elif "Simulation" in page:
             venue_pts = [{"position": [G.nodes[ev_jn]["lng"], G.nodes[ev_jn]["lat"]],
                           "color": [255, 255, 255, 255], "road": "Event Location"}]
 
-            _deck([
-                _path_layer(net_base, "base", 1),
-                _path_layer(hot_segs, "hot", 4),
-                _scatter_layer(venue_pts, "venue", 18),
-                _scatter_layer(officer_pts, "officers", 14),
-            ])
+            m = _make_map()
+            _add_path_layer(m, net_base, 1)
+            _add_path_layer(m, hot_segs, 4)
+            _add_scatter_layer(m, venue_pts, 18)
+            _add_scatter_layer(m, officer_pts, 14)
+            _show_map(m)
             st.caption("🔴/🟠 = congested segments · 🟠 dots = officer positions")
 
 # ═══════════════════════════════════════════════════════════════════════════════
