@@ -9,11 +9,6 @@ import pandas as pd
 import numpy as np
 import altair as alt
 
-st.set_page_config(
-    page_title="GridLock · ML Architecture",
-    page_icon="🧠",
-    layout="wide",
-)
 
 ss = st.session_state
 
